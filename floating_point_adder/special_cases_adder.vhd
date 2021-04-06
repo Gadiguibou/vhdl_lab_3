@@ -15,7 +15,7 @@ architecture rtl of special_cases_adder is
 
 begin
 
-    main : process
+    main : process (s_a, s_b, e_a, e_b, m_a, m_b)
     begin
         -- if any of the operands is NaN => output is NaN
         if (e_a = b"1111_1111" and m_a /= b"000_0000_0000_0000_0000_0000") or (e_b = b"1111_1111" and m_b /= b"000_0000_0000_0000_0000_0000") then
@@ -36,6 +36,8 @@ begin
         elsif (e_b = b"1111_1111" and m_b = b"000_0000_0000_0000_0000_0000") then
             s <= s_b & b"1111_1111_000_0000_0000_0000_0000_0000";
             -- all special cases should be covered here
+        else
+        	s <= (others => '0');
         end if;
     end process main;
 

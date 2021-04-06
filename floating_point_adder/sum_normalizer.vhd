@@ -26,22 +26,32 @@ begin
 
     overflow <= raw_sum(24);
 
-    overflow_shift : process (raw_sum)
-    begin
-        if overflow = '1' and original_e = x"FE" then
-            temp <= (others => '0');
-            overflow_adjusted_sum <= (others => '0');
-            overflow_adjusted_exp <= x"FF";
-        elsif overflow = '1' then
-            temp <= std_logic_vector(shift_right(unsigned(raw_sum), 1));
-            overflow_adjusted_sum <= temp (23 downto 0);
-            overflow_adjusted_exp <= std_logic_vector(unsigned(original_e) - 1);
-        else
-            temp <= (others => '0');
-            overflow_adjusted_sum <= raw_sum (23 downto 0);
-            overflow_adjusted_exp <= original_e;
-        end if;
-    end process overflow_shift;
+    temp <= (others => '0') when overflow = '1' and original_e = x"FE" else
+        std_logic_vector(shift_right(unsigned(raw_sum), 1)) when overflow = '1' else
+        (others => '0');
+    overflow_adjusted_sum <= (others => '0') when overflow = '1' and original_e = x"FE" else
+        temp (23 downto 0) when overflow = '1' else
+        raw_sum (23 downto 0);
+    overflow_adjusted_exp <= x"FF" when overflow = '1' and original_e = x"FE" else
+        std_logic_vector(unsigned(original_e) - 1) when overflow = '1' else
+        original_e;
+
+    -- overflow_shift : process (original_e, raw_sum)
+    -- begin
+    --     if overflow = '1' and original_e = x"FE" then
+    --         temp <= (others => '0');
+    --         overflow_adjusted_sum <= (others => '0');
+    --         overflow_adjusted_exp <= x"FF";
+    --     elsif overflow = '1' then
+    --         temp <= std_logic_vector(shift_right(unsigned(raw_sum), 1));
+    --         overflow_adjusted_sum <= temp (23 downto 0);
+    --         overflow_adjusted_exp <= std_logic_vector(unsigned(original_e) - 1);
+    --     else
+    --         temp <= (others => '0');
+    --         overflow_adjusted_sum <= raw_sum (23 downto 0);
+    --         overflow_adjusted_exp <= original_e;
+    --     end if;
+    -- end process overflow_shift;
 
     zero_reference <= (others => '0');
 
@@ -71,19 +81,27 @@ begin
         "00001" when overflow_adjusted_sum (23) = zero_reference(23) else
         "00000";
 
-    normalize : process (overflow_adjusted_exp, overflow_adjusted_sum, shift_needed)
-    begin
-        if shift_needed = "11111" then
-            normalized_exp <= x"00";
-            normalized_sum <= (others => '0');
-        elsif unsigned(overflow_adjusted_exp) < "000" & shift_needed then
-            normalized_exp <= x"00";
-            normalized_sum <= std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(unsigned(overflow_adjusted_exp))));
-        else
-            normalized_exp <= std_logic_vector(unsigned(overflow_adjusted_exp) - shift_needed);
-            normalized_sum <= std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(shift_needed)));
-        end if;
-    end process normalize;
+    normalized_exp <= overflow_adjusted_exp when overflow_adjusted_exp = x"FF" else
+    	x"00" when shift_needed = "11111" or unsigned(overflow_adjusted_exp) < "000" & shift_needed else
+        std_logic_vector(unsigned(overflow_adjusted_exp) - shift_needed);
+
+    normalized_sum <= (others => '0') when shift_needed = "11111" else
+        std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(unsigned(overflow_adjusted_exp)))) when unsigned(overflow_adjusted_exp) < "000" & shift_needed else
+        std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(shift_needed)));
+
+    -- normalize : process (overflow_adjusted_exp, overflow_adjusted_sum, shift_needed)
+    -- begin
+    --     if shift_needed = "11111" then
+    --         normalized_exp <= x"00";
+    --         normalized_sum <= (others => '0');
+    --     elsif unsigned(overflow_adjusted_exp) < "000" & shift_needed then
+    --         normalized_exp <= x"00";
+    --         normalized_sum <= std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(unsigned(overflow_adjusted_exp))));
+    --     else
+    --         normalized_exp <= std_logic_vector(unsigned(overflow_adjusted_exp) - shift_needed);
+    --         normalized_sum <= std_logic_vector(shift_left(unsigned(overflow_adjusted_sum), to_integer(shift_needed)));
+    --     end if;
+    -- end process normalize;
 
     final_sum <= s & normalized_exp & (normalized_sum (22 downto 0));
 
